@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project BAMI</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* [نفس الأكواد الأصلية من المصدر 1 إلى 146] */
+        :root {
+            --bg-color: #fbfbfd;
+            --card-bg: #ffffff;        
+            --text-main: #000000;      
+            --text-muted: #86868b;
+            --line-color: #e5e5e5;     
+            --dot-size: 24px;          
+            --radius: 20px;
+        }
+
+        /* إضافات التصميم الجديدة المتوافقة مع نمط Apple */
+        .bottom-sheet {
+            position: fixed;
+            bottom: -100%;
+            left: 0; right: 0;
+            background: #fff;
+            border-radius: 30px 30px 0 0;
+            padding: 30px 20px;
+            z-index: 2000;
+            transition: bottom 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.1);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .bottom-sheet.active { bottom: 0; }
+
+        .custom-select {
+            appearance: none;
+            width: 100%;
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid var(--line-color);
+            background: #f5f5f7;
+            font-size: 1rem;
+            margin-bottom: 15px;
+            cursor: pointer;
+        }
+
+        .admin-edit-btn {
+            display: none; /* تظهر فقط للأدمن */
+            background: #000;
+            color: #fff;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        .lang-toggle {
+            padding: 15px;
+            text-align: center;
+            border-top: 1px solid var(--line-color);
+            margin-top: auto;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .stats-list-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        [dir="rtl"] {
+            text-align: right;
+        }
+        
+        /* [إكمال باقي الأنماط من المصدر الأصلي] */
+        body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; display: flex; flex-direction: column; min-height: 100vh; }
+        nav { position: fixed; top: 0; width: 100%; background: rgba(251, 251, 253, 0.9); backdrop-filter: blur(20px); z-index: 1000; height: 60px; border-bottom: 1px solid rgba(0,0,0,0.05); }
+        .container { max-width: 800px; margin: 0 auto; padding: 100px 20px 60px; flex: 1; width: 100%; box-sizing: border-box; }
+        /* ... باقي الـ CSS الأصلي ... */
+    </style>
+</head>
+<body>
+
+<div class="sidebar-backdrop" id="backdrop" onclick="toggleMenu()"></div>
+<div class="sidebar" id="sidebar">
+    <div style="margin-bottom: 40px; font-weight: 800; font-size: 1.5rem; padding-left: 12px;" data-tr="Menu">Menu</div>
+    <div class="menu-item active-link" onclick="handleMenuClick('roadmap')" data-tr="Roadmap">Roadmap</div>
+    <div class="menu-item" onclick="handleMenuClick('feed')" data-tr="Updates Feed">Updates Feed</div>
+    <div class="menu-item" onclick="handleMenuClick('hadith')" data-tr="Hadith Library">Hadith Library</div>
+    <div class="menu-item" onclick="handleMenuClick('about')" data-tr="About">About</div>
+    <div class="menu-item" onclick="handleMenuClick('qa')" data-tr="Q & A">Q & A</div>
+    <div id="admin-stats-link" class="menu-item" onclick="handleMenuClick('admin')" style="display:none; color: #ff3b30;" data-tr="Admin Panel">Admin Panel</div>
+    
+    <div class="lang-toggle" onclick="toggleLanguage()">
+        <span id="lang-text">العربية</span>
+    </div>
+</div>
+
+<nav>
+    <div class="nav-content">
+        <button class="menu-btn" onclick="toggleMenu()">
+            <svg class="menu-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </button>
+        <div class="brand">Project BAMI</div>
+        <div id="user-status-btn" onclick="handleAuthClick()" style="cursor:pointer; font-size: 0.8rem; font-weight: 600;" data-tr="Login">Login</div>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="stat-box" style="margin-bottom: 30px; background: linear-gradient(135deg, #000, #333); color: #fff;">
+        <span class="stat-number" id="live-users-count">0</span>
+        <span class="stat-label" style="color: rgba(255,255,255,0.7)" data-tr="People in BAMI">People in BAMI</span>
+    </div>
+
+    <div id="roadmap-view" class="view-section active-view">
+        <header>
+            <h1 data-tr="Roadmap of BAMI">Roadmap of BAMI</h1>
+            <p class="subtitle" data-tr="Detailed Breakdown">Detailed Breakdown of the current progress</p>
+        </header>
+        <div class="timeline" id="roadmap-list">
+            </div>
+    </div>
+
+    <div id="admin-view" class="view-section">
+        <header><h1>إحصائيات المجتمع</h1></header>
+        <div class="about-card">
+            <h3>المحافظات (الترتيب الكامل)</h3>
+            <div id="province-stats"></div>
+            <hr>
+            <h3>توزيع الأعمار</h3>
+            <div id="age-stats"></div>
+            <hr>
+            <h3>مصادر الوصول إلينا</h3>
+            <div id="source-stats"></div>
+        </div>
+    </div>
+</div>
+
+<div id="info-sheet" class="bottom-sheet">
+    <h2 style="margin-top:0">أكمل ملفك الشخصي</h2>
+    <input type="text" class="custom-select" id="user-fullname" placeholder="الاسم (الثلاثي)">
+    <input type="date" class="custom-select" id="user-birthdate">
+    <select class="custom-select" id="user-province">
+        <option value="Baghdad">Baghdad</option>
+        <option value="Basra">Basra</option>
+        <option value="Dhi Qar">Dhi Qar</option>
+        </select>
+    <select class="custom-select" id="user-skills" onchange="checkOther(this, 'skill-other')">
+        <option value="Programming">Programming</option>
+        <option value="Design">Design</option>
+        <option value="Writing">Writing</option>
+        <option value="Other">Other</option>
+    </select>
+    <input type="text" id="skill-other" class="custom-select" style="display:none" placeholder="حدد مهاراتك">
+    <button onclick="saveUserInfo()" style="width:100%; background:#000; color:#fff; border:none; padding:15px; border-radius:12px; font-weight:bold;">حفظ البيانات</button>
+</div>
+
+<script>
+    // إعداد Supabase 
+    const _supabase = supabase.createClient('YOUR_URL', 'YOUR_KEY');
+    let currentUser = null;
+    let isArabic = false;
+
+    const ADMIN_EMAIL = "964diu@gmail.com";
+
+    // وظيفة التبديل والترجمة [cite: 140, 301]
+    function toggleLanguage() {
+        isArabic = !isArabic;
+        document.body.dir = isArabic ? "rtl" : "ltr";
+        document.getElementById('lang-text').innerText = isArabic ? "English" : "العربية";
+        
+        // ترجمة النصوص التي تحتوي على data-tr
+        const translations = {
+            "Menu": "القائمة",
+            "Roadmap": "خارطة الطريق",
+            "Login": "تسجيل الدخول",
+            "People in BAMI": "أشخاص في بامي"
+            // إضافة باقي الترجمات هنا
+        };
+
+        document.querySelectorAll('[data-tr]').forEach(el => {
+            const key = el.getAttribute('data-tr');
+            if(isArabic) {
+                el.innerText = translations[key] || el.innerText;
+            } else {
+                el.innerText = key;
+            }
+        });
+    }
+
+    // التحقق من الأدمن وإظهار أزرار التحكم 
+    function checkAdminAccess(email) {
+        if(email === ADMIN_EMAIL) {
+            document.getElementById('admin-stats-link').style.display = 'block';
+            enableEditingFeatures();
+        }
+    }
+
+    function enableEditingFeatures() {
+        // إضافة أيقونة تعديل بجانب العناوين في القوائم
+        document.querySelectorAll('.header-content h3').forEach(title => {
+            const btn = document.createElement('button');
+            btn.className = 'admin-edit-btn';
+            btn.innerText = 'Edit';
+            btn.style.display = 'inline-block';
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                const newVal = prompt("تعديل المحتوى:", title.innerText);
+                if(newVal) title.innerText = newVal;
+            };
+            title.appendChild(btn);
+        });
+    }
+
+    // وظائف تسجيل الدخول [cite: 175, 294]
+    async function handleAuthClick() {
+        if(currentUser) {
+            await _supabase.auth.signOut();
+            location.reload();
+        } else {
+            const email = prompt("أدخل بريدك الإلكتروني:");
+            const password = prompt("أدخل كلمة المرور:");
+            const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+            if(error) alert(error.message);
+        }
+    }
+
+    // منطق الإحصائيات (الترتيب الكامل) [cite: 112, 145]
+    function renderStats(containerId, dataMap, total) {
+        const container = document.getElementById(containerId);
+        const sorted = Object.entries(dataMap).sort((a,b) => b[1] - a[1]);
+        
+        container.innerHTML = sorted.map(([key, val], index) => {
+            const percent = ((val / total) * 100).toFixed(1);
+            const rank = index === 0 ? "الأعلى" : `#${index + 1}`;
+            return `<div class="stats-list-item">
+                        <span>${key} (${rank})</span>
+                        <span>${percent}%</span>
+                    </div>`;
+        }).join('');
+    }
+
+    // استدعاء الوظائف الأصلية [cite: 304, 311]
+    // [إدراج toggleMenu, switchView, handleMenuClick الأصلية من ملفك هنا]
+</script>
+</body>
+</html>
